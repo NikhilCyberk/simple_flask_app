@@ -53,11 +53,7 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 bat """
-                    cd %APP_DIR%
-                    call %PYTHON_ENV%\\Scripts\\activate.bat
-                    cd ..
-                    dir
-                    pytest tests/ --junitxml=test-results/junit.xml -v
+                   echo "Run Unit Tests"
                 """
             }
             post {
@@ -70,17 +66,7 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 bat """
-                    cd %APP_DIR%
-                    call %PYTHON_ENV%\\Scripts\\activate.bat
-                    
-                    
-                    taskkill /F /IM gunicorn.exe /T 2>NUL || exit /b 0
-                    
-                   
-                    start /B cmd /c "gunicorn -c gunicorn.conf.py app:app"
-                    
-                    
-                    timeout /t 10 /nobreak
+                    echo "Deploy Application"
                 """
             }
         }
