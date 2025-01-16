@@ -55,6 +55,8 @@ pipeline {
                 bat """
                     cd %APP_DIR%
                     call %PYTHON_ENV%\\Scripts\\activate.bat
+                    cd ..
+                    dir
                     pytest tests/ --junitxml=test-results/junit.xml -v
                 """
             }
