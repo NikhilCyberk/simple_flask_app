@@ -10,13 +10,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Clean workspace before starting
+            
                 cleanWs()
                 
-                // Clone the repository
+                
                 checkout scm
                 
-                // Create application directory
+                
                 bat "mkdir %APP_DIR%"
             }
         }
@@ -26,10 +26,10 @@ pipeline {
                 bat """
                     cd %APP_DIR%
                     
-                    // Create virtual environment
+                    
                     python -m venv %PYTHON_ENV%
                     
-                    // Activate virtual environment and install dependencies
+                    
                     call %PYTHON_ENV%\\Scripts\\activate.bat
                     python -m pip install --upgrade pip
                     pip install -r requirements.txt
@@ -69,13 +69,13 @@ pipeline {
                     cd %APP_DIR%
                     call %PYTHON_ENV%\\Scripts\\activate.bat
                     
-                    // Kill any existing Gunicorn processes
+                    
                     taskkill /F /IM gunicorn.exe /T 2>NUL || exit /b 0
                     
-                    // Start Gunicorn in the background using config file
+                   
                     start /B cmd /c "gunicorn -c gunicorn.conf.py app:app"
                     
-                    // Give Gunicorn time to start
+                    
                     timeout /t 10 /nobreak
                 """
             }
@@ -84,7 +84,7 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    // Multiple health checks
+                  
                     def maxRetries = 3
                     def retryCount = 0
                     def deployed = false
@@ -122,14 +122,14 @@ pipeline {
             echo "Pipeline completed successfully! Application is running at http://127.0.0.1:${FLASK_PORT}"
         }
         failure {
-            // Clean up on failure
+           
             bat """
                 cd %APP_DIR%
                 taskkill /F /IM gunicorn.exe /T 2>NUL || exit /b 0
             """
         }
         cleanup {
-            // Clean up workspace
+       
             cleanWs()
         }
     }
