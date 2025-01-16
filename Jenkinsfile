@@ -32,6 +32,7 @@ pipeline {
                     
                     call %PYTHON_ENV%\\Scripts\\activate.bat
                     python -m pip install --upgrade pip
+                    cd ..
                     dir
                     pip install -r requirements.txt
                 """
