@@ -17,13 +17,23 @@ pipeline {
         stage('Set Up Python Environment') {
             steps {
                 script {
-                    // Create virtual environment, upgrade pip, and install dependencies with verbose output
-                    bat """
-                        python -m venv ${VENV_PATH}
-                        ${VENV_PATH}\\Scripts\\activate.bat && python -m pip install --upgrade pip
-                        ${VENV_PATH}\\Scripts\\activate.bat && pip install -r requirements.txt --verbose
-                        ${VENV_PATH}\\Scripts\\activate.bat && pip list
-                    """
+                    // Split the environment setup into separate commands for better error tracking
+                    bat 'python -m venv venv'
+                    bat 'venv\\Scripts\\activate.bat && python -m pip install --upgrade pip'
+                    
+                    // Install each dependency individually with verbose output
+                    bat '''
+                        venv\\Scripts\\activate.bat && (
+                            pip install Flask==3.0.0 --verbose
+                            pip install pytest==7.4.3 --verbose
+                            pip install gunicorn==21.2.0 --verbose
+                            pip install eventlet==0.33.3 --verbose
+                            pip install Werkzeug==3.0.1 --verbose
+                        )
+                    '''
+                    
+                    // Verify installations
+                    bat 'venv\\Scripts\\activate.bat && pip list'
                 }
             }
         }
@@ -31,10 +41,12 @@ pipeline {
         stage('Run Server') {
             steps {
                 script {
-                    bat """
-                        ${VENV_PATH}\\Scripts\\activate.bat && python app.py &
-                        timeout /t 5 /nobreak > nul
-                    """
+                    bat '''
+                        venv\\Scripts\\activate.bat && (
+                            echo Starting Flask application...
+                            python app.py
+                        )
+                    '''
                 }
             }
         }
@@ -44,7 +56,8 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            powershell -command "Start-Sleep -s 3; Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
+                            timeout /t 5 /nobreak > nul
+                            powershell -command "Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
                         '''
                         echo 'Application is running successfully!'
                     } catch (Exception e) {
@@ -57,9 +70,7 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    bat """
-                        ${VENV_PATH}\\Scripts\\activate.bat && python -m pytest
-                    """
+                    bat 'venv\\Scripts\\activate.bat && python -m pytest'
                 }
             }
         }
@@ -78,14 +89,18 @@ pipeline {
     post {
         always {
             script {
-                bat '''
-                    taskkill /F /IM python.exe || exit 0
-                '''
+                bat 'taskkill /F /IM python.exe || exit 0'
             }
         }
         failure {
             script {
-                echo 'Pipeline failed! Check the pip installation logs and Python environment setup.'
+                echo 'Pipeline failed! Checking virtual environment status...'
+                bat '''
+                    echo Listing installed packages:
+                    venv\\Scripts\\activate.bat && pip list
+                    echo Checking Python version:
+                    python --version
+                '''
             }
         }
     }
