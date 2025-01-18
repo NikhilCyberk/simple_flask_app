@@ -38,18 +38,31 @@ pipeline {
             }
         }
         
+        // stage('Run Server') {
+        //     steps {
+        //         script {
+        //             bat '''
+        //                 venv\\Scripts\\activate.bat && (
+        //                     echo Starting Flask application...
+        //                     python app.py
+        //                 )
+        //             '''
+        //         }
+        //     }
+        // }
         stage('Run Server') {
-            steps {
-                script {
-                    bat '''
-                        venv\\Scripts\\activate.bat && (
-                            echo Starting Flask application...
-                            python app.py
-                        )
-                    '''
-                }
-            }
+    steps {
+        script {
+            bat '''
+                venv\\Scripts\\activate.bat && (
+                    echo Starting Flask application...
+                    start /B gunicorn --bind 127.0.0.1:8000 app:app
+                    timeout /t 5 /nobreak > nul
+                )
+            '''
         }
+    }
+}
         
         stage('Verify Deployment') {
             steps {
