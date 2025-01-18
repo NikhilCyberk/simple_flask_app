@@ -11,20 +11,25 @@ pipeline {
             steps {
                 script {
                     bat 'python -m venv venv'
-                    bat 'venv\\Scripts\\activate && pip install -r requirements.txt'
+                    bat 'venv\\Scripts\\activate && pip install -r requirements.txt && pip install waitress'
                 }
             }
         }
-        stage('Run Gunicorn') {
+        stage('Run Server') {
             steps {
                 script {
-                    bat 'venv\\Scripts\\activate && gunicorn -b 127.0.0.1:8000 app:app'
+                    // Use waitress instead of gunicorn
+                    bat '''
+                        venv\\Scripts\\activate && python -c "from waitress import serve; from app import app; serve(app, host='127.0.0.1', port=8000)"
+                    '''
                 }
             }
         }
         stage('Verify Deployment') {
             steps {
                 script {
+                    // Add a small delay to ensure server is up
+                    bat 'timeout /t 5'
                     bat 'curl http://127.0.0.1:8000'
                 }
             }
@@ -41,6 +46,14 @@ pipeline {
                 script {
                     echo 'Post-deployment checks completed.'
                 }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                // Cleanup: Kill any remaining Python processes
+                bat 'taskkill /F /IM python.exe || exit 0'
             }
         }
     }
