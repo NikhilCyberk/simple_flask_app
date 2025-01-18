@@ -112,8 +112,8 @@ pipeline {
             script {
                 // Clean up processes
                 bat '''
-                    powershell -Command "Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force"
-                    powershell -Command "Get-Process -Name flask -ErrorAction SilentlyContinue | Stop-Process -Force"
+                    powershell -Command "Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
+                    powershell -Command "Get-Process -Name flask -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
                 '''
             }
         }
