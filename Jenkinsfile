@@ -17,11 +17,8 @@ pipeline {
         stage('Set Up Python Environment') {
             steps {
                 script {
-                    // Split the environment setup into separate commands for better error tracking
                     bat 'python -m venv venv'
                     bat 'venv\\Scripts\\activate.bat && python -m pip install --upgrade pip'
-                    
-                    // Install each dependency individually with verbose output
                     bat '''
                         venv\\Scripts\\activate.bat && (
                             pip install Flask==3.0.0 --verbose
@@ -31,51 +28,33 @@ pipeline {
                             pip install Werkzeug==3.0.1 --verbose
                         )
                     '''
-                    
-                    // Verify installations
                     bat 'venv\\Scripts\\activate.bat && pip list'
                 }
             }
         }
         
-        // stage('Run Server') {
-        //     steps {
-        //         script {
-        //             bat '''
-        //                 venv\\Scripts\\activate.bat && (
-        //                     echo Starting Flask application...
-        //                     python app.py
-        //                 )
-        //             '''
-        //         }
-        //     }
-        // }
         stage('Run Server') {
-    steps {
-        script {
-            bat '''
-                venv\\Scripts\\activate.bat && (
-                    echo Starting Flask application...
-                    start /B gunicorn --bind 127.0.0.1:8000 app:app
-                    timeout /t 5 /nobreak > nul
-                )
-            '''
+            steps {
+                script {
+                    // Create a batch file to run the server
+                    bat '''
+                        echo @echo off > run_server.bat
+                        echo venv\\Scripts\\activate.bat >> run_server.bat
+                        echo gunicorn --bind 127.0.0.1:8000 app:app >> run_server.bat
+                        start /B run_server.bat
+                        timeout /t 10 /nobreak
+                    '''
+                }
+            }
         }
-    }
-}
         
         stage('Verify Deployment') {
             steps {
                 script {
-                    try {
-                        bat '''
-                            timeout /t 5 /nobreak > nul
-                            powershell -command "Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
-                        '''
-                        echo 'Application is running successfully!'
-                    } catch (Exception e) {
-                        error 'Failed to verify deployment: Application is not responding'
-                    }
+                    bat '''
+                        powershell -Command "try { $response = Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing; exit 0 } catch { exit 1 }"
+                    '''
+                    echo 'Application is running successfully!'
                 }
             }
         }
@@ -92,7 +71,7 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        powershell -command "Invoke-WebRequest -Uri http://127.0.0.1:8000/health -UseBasicParsing"
+                        powershell -Command "try { $response = Invoke-WebRequest -Uri http://127.0.0.1:8000/health -UseBasicParsing; exit 0 } catch { exit 1 }"
                     '''
                 }
             }
@@ -102,7 +81,10 @@ pipeline {
     post {
         always {
             script {
-                bat 'taskkill /F /IM python.exe || exit 0'
+                bat '''
+                    taskkill /F /IM python.exe > nul 2>&1 || exit 0
+                    taskkill /F /IM gunicorn.exe > nul 2>&1 || exit 0
+                '''
             }
         }
         failure {
@@ -111,8 +93,6 @@ pipeline {
                 bat '''
                     echo Listing installed packages:
                     venv\\Scripts\\activate.bat && pip list
-                    echo Checking Python version:
-                    python --version
                 '''
             }
         }
