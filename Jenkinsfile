@@ -52,8 +52,10 @@ pipeline {
                     // Run the server in background
                     bat 'start /B start_server.bat'
                     
-                    // Wait for server to start
-                    bat 'timeout /t 15 /nobreak'
+                    // Wait for server to start using PowerShell
+                    bat '''
+                        powershell -Command "Start-Sleep -Seconds 15"
+                    '''
                 }
             }
         }
