@@ -22,7 +22,6 @@ pipeline {
                         python -m venv ${VENV_PATH}
                         ${VENV_PATH}\\Scripts\\activate.bat && python -m pip install --upgrade pip
                         ${VENV_PATH}\\Scripts\\activate.bat && pip install -r requirements.txt
-                        ${VENV_PATH}\\Scripts\\activate.bat && pip install eventlet gunicorn
                     """
                 }
             }
@@ -33,8 +32,8 @@ pipeline {
                 script {
                     // Start Gunicorn with eventlet worker
                     bat """
-                        ${VENV_PATH}\\Scripts\\activate.bat && python -m gunicorn --worker-class eventlet -w 1 -b 127.0.0.1:8000 app:app &
-                        timeout /t 5 /nobreak > nul
+                        ${VENV_PATH}\\Scripts\\activate.bat && ${VENV_PATH}\\Scripts\\gunicorn --worker-class eventlet -w 1 -b 127.0.0.1:8000 app:app &
+                        timeout /t 10 /nobreak > nul
                     """
                 }
             }
@@ -45,7 +44,7 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            powershell -command "Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
+                            powershell -command "Start-Sleep -s 5; Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
                         '''
                         echo 'Application is running successfully!'
                     } catch (Exception e) {
@@ -58,7 +57,7 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    bat "${VENV_PATH}\\Scripts\\activate.bat && pytest"
+                    bat "${VENV_PATH}\\Scripts\\activate.bat && ${VENV_PATH}\\Scripts\\pytest"
                 }
             }
         }
@@ -77,8 +76,10 @@ pipeline {
     post {
         always {
             script {
-                bat 'taskkill /F /IM python.exe || exit 0'
-                bat 'taskkill /F /IM gunicorn.exe || exit 0'
+                bat '''
+                    taskkill /F /IM python.exe || exit 0
+                    taskkill /F /IM gunicorn.exe || exit 0
+                '''
             }
         }
     }
