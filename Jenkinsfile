@@ -17,11 +17,11 @@ pipeline {
         stage('Set Up Python Environment') {
             steps {
                 script {
-                    // Create virtual environment, upgrade pip, and install dependencies
+                    // Create virtual environment, upgrade pip, and install dependencies with verbose output
                     bat """
                         python -m venv ${VENV_PATH}
                         ${VENV_PATH}\\Scripts\\activate.bat && python -m pip install --upgrade pip
-                        ${VENV_PATH}\\Scripts\\activate.bat && pip install -r requirements.txt
+                        ${VENV_PATH}\\Scripts\\activate.bat && pip install -r requirements.txt --verbose
                         ${VENV_PATH}\\Scripts\\activate.bat && pip list
                     """
                 }
@@ -31,10 +31,9 @@ pipeline {
         stage('Run Server') {
             steps {
                 script {
-                    // Start the Flask application using python-directly first as a fallback
                     bat """
                         ${VENV_PATH}\\Scripts\\activate.bat && python app.py &
-                        timeout /t 10 /nobreak > nul
+                        timeout /t 5 /nobreak > nul
                     """
                 }
             }
@@ -45,7 +44,7 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            powershell -command "Start-Sleep -s 5; Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
+                            powershell -command "Start-Sleep -s 3; Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing"
                         '''
                         echo 'Application is running successfully!'
                     } catch (Exception e) {
@@ -82,6 +81,11 @@ pipeline {
                 bat '''
                     taskkill /F /IM python.exe || exit 0
                 '''
+            }
+        }
+        failure {
+            script {
+                echo 'Pipeline failed! Check the pip installation logs and Python environment setup.'
             }
         }
     }
