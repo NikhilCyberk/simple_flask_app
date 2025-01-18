@@ -17,11 +17,12 @@ pipeline {
         stage('Set Up Python Environment') {
             steps {
                 script {
-                    // Create and activate virtual environment, install dependencies
+                    // Create virtual environment, upgrade pip, and install dependencies
                     bat """
                         python -m venv ${VENV_PATH}
                         ${VENV_PATH}\\Scripts\\activate.bat && python -m pip install --upgrade pip
                         ${VENV_PATH}\\Scripts\\activate.bat && pip install -r requirements.txt
+                        ${VENV_PATH}\\Scripts\\activate.bat && pip list
                     """
                 }
             }
@@ -30,9 +31,9 @@ pipeline {
         stage('Run Server') {
             steps {
                 script {
-                    // Start Gunicorn with eventlet worker
+                    // Start the Flask application using python-directly first as a fallback
                     bat """
-                        ${VENV_PATH}\\Scripts\\activate.bat && ${VENV_PATH}\\Scripts\\gunicorn --worker-class eventlet -w 1 -b 127.0.0.1:8000 app:app &
+                        ${VENV_PATH}\\Scripts\\activate.bat && python app.py &
                         timeout /t 10 /nobreak > nul
                     """
                 }
@@ -57,7 +58,9 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    bat "${VENV_PATH}\\Scripts\\activate.bat && ${VENV_PATH}\\Scripts\\pytest"
+                    bat """
+                        ${VENV_PATH}\\Scripts\\activate.bat && python -m pytest
+                    """
                 }
             }
         }
@@ -78,7 +81,6 @@ pipeline {
             script {
                 bat '''
                     taskkill /F /IM python.exe || exit 0
-                    taskkill /F /IM gunicorn.exe || exit 0
                 '''
             }
         }
