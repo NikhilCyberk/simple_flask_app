@@ -3,43 +3,42 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/NikhilCyberk/simple_flask_app.git'
+                git branch: 'main',
+                    url: 'https://github.com/NikhilCyberk/simple_flask_app.git'
             }
         }
         stage('Set Up Python Environment') {
             steps {
                 script {
-                    bat 'python -m venv venv' // Create virtual environment
-                    bat 'venv\\Scripts\\activate' // Activate virtual environment
-                    bat 'pip install -r requirements.txt' // Install dependencies
+                    bat 'python -m venv venv'
+                    bat 'venv\\Scripts\\activate && pip install -r requirements.txt'
                 }
             }
         }
         stage('Run Gunicorn') {
             steps {
                 script {
-                    bat 'venv\\Scripts\\activate && gunicorn -b 127.0.0.1:8000 app:app' // Start Gunicorn server
+                    bat 'venv\\Scripts\\activate && gunicorn -b 127.0.0.1:8000 app:app'
                 }
             }
         }
         stage('Verify Deployment') {
             steps {
                 script {
-                    bat 'curl http://127.0.0.1:8000' // Verify deployment
+                    bat 'curl http://127.0.0.1:8000'
                 }
             }
         }
         stage('Run Unit Tests') {
             steps {
                 script {
-                    bat 'venv\\Scripts\\activate && pytest' // Run unit tests
+                    bat 'venv\\Scripts\\activate && pytest'
                 }
             }
         }
         stage('Post-Deployment Checks') {
             steps {
                 script {
-                    // Add any endpoint checks or additional verification here
                     echo 'Post-deployment checks completed.'
                 }
             }
