@@ -3,6 +3,7 @@ pipeline {
     
     environment {
         VENV_PATH = 'venv'
+        PORT = '8000'
     }
     
     stages {
@@ -21,45 +22,14 @@ pipeline {
                     bat 'venv\\Scripts\\activate.bat && python -m pip install --upgrade pip'
                     bat '''
                         venv\\Scripts\\activate.bat && (
-                            pip install Flask==3.0.0 --verbose
-                            pip install pytest==7.4.3 --verbose
-                            pip install gunicorn==21.2.0 --verbose
-                            pip install eventlet==0.33.3 --verbose
-                            pip install Werkzeug==3.0.1 --verbose
+                            pip install -r requirements.txt --verbose
                         )
                     '''
-                    bat 'venv\\Scripts\\activate.bat && pip list'
                 }
             }
         }
         
-        stage('Run Server') {
-            steps {
-                script {
-                    // Create a batch file to run the server
-                    bat '''
-                        echo @echo off > run_server.bat
-                        echo venv\\Scripts\\activate.bat >> run_server.bat
-                        echo gunicorn --bind 127.0.0.1:8000 app:app >> run_server.bat
-                        start /B run_server.bat
-                        timeout 10
-                    '''
-                }
-            }
-        }
-        
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    bat '''
-                        powershell -Command "try { $response = Invoke-WebRequest -Uri http://127.0.0.1:8000 -UseBasicParsing; exit 0 } catch { exit 1 }"
-                    '''
-                    echo 'Application is running successfully!'
-                }
-            }
-        }
-        
-        stage('Run Unit Tests') {
+        stage('Run Tests') {
             steps {
                 script {
                     bat 'venv\\Scripts\\activate.bat && python -m pytest'
@@ -67,11 +37,68 @@ pipeline {
             }
         }
         
-        stage('Post-Deployment Checks') {
+        stage('Deploy Application') {
+            steps {
+                script {
+                    // Create a Windows batch script to run the server
+                    bat '''
+                        echo @echo off > start_server.bat
+                        echo set FLASK_APP=app.py >> start_server.bat
+                        echo set FLASK_ENV=production >> start_server.bat
+                        echo call venv\\Scripts\\activate.bat >> start_server.bat
+                        echo python -m flask run --host=127.0.0.1 --port=%PORT% >> start_server.bat
+                    '''
+                    
+                    // Run the server in background
+                    bat 'start /B start_server.bat'
+                    
+                    // Wait for server to start
+                    bat 'timeout /t 15 /nobreak'
+                }
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // Using PowerShell for better HTTP request handling
+                    bat '''
+                        powershell -Command "try { \
+                            \$response = Invoke-WebRequest -Uri http://127.0.0.1:%PORT% -UseBasicParsing; \
+                            if (\$response.StatusCode -eq 200) { \
+                                Write-Host 'Application is running successfully!'; \
+                                exit 0; \
+                            } else { \
+                                Write-Host 'Application returned status code: ' \$response.StatusCode; \
+                                exit 1; \
+                            } \
+                        } catch { \
+                            Write-Host 'Failed to connect to application: ' \$_.Exception.Message; \
+                            exit 1; \
+                        }"
+                    '''
+                }
+            }
+        }
+        
+        stage('Health Check') {
             steps {
                 script {
                     bat '''
-                        powershell -Command "try { $response = Invoke-WebRequest -Uri http://127.0.0.1:8000/health -UseBasicParsing; exit 0 } catch { exit 1 }"
+                        powershell -Command "try { \
+                            \$response = Invoke-WebRequest -Uri http://127.0.0.1:%PORT%/health -UseBasicParsing; \
+                            \$content = \$response.Content | ConvertFrom-Json; \
+                            if (\$content.status -eq 'healthy') { \
+                                Write-Host 'Health check passed!'; \
+                                exit 0; \
+                            } else { \
+                                Write-Host 'Health check failed: ' \$content.status; \
+                                exit 1; \
+                            } \
+                        } catch { \
+                            Write-Host 'Health check failed: ' \$_.Exception.Message; \
+                            exit 1; \
+                        }"
                     '''
                 }
             }
@@ -81,9 +108,10 @@ pipeline {
     post {
         always {
             script {
+                // Clean up processes
                 bat '''
-                    taskkill /F /IM python.exe > nul 2>&1 || exit 0
-                    taskkill /F /IM gunicorn.exe > nul 2>&1 || exit 0
+                    powershell -Command "Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force"
+                    powershell -Command "Get-Process -Name flask -ErrorAction SilentlyContinue | Stop-Process -Force"
                 '''
             }
         }
